@@ -243,14 +243,13 @@ def main():
     try:
         adb_path = find_adb()
     except FileNotFoundError as e:
-        print(f"ERRO: {e}")
-        return
+        logging.warning("ADB not found: %s", e)
 
     try:
-        get_available_device(adb_path)
+        if adb_path:
+            get_available_device(adb_path)
     except (ConnectionError, PermissionError) as e:
-        print(f"ERRO: {e}")
-        return
+        logging.warning("No Android device: %s", e)
 
     monitor_thread = threading.Thread(target=monitor_call, daemon=True)
     monitor_thread.start()
