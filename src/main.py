@@ -44,7 +44,6 @@ PAGE_CALLING = """<!DOCTYPE html>
   .card { background: white; border-radius: 12px; padding: 40px; display: inline-block; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
   h2 { color: #333; margin-bottom: 5px; }
   .phone { font-size: 24px; font-weight: bold; color: #1a73e8; margin: 15px 0; }
-  .name { font-size: 18px; color: #333; margin-bottom: 5px; }
   .status { color: #888; font-size: 14px; margin-bottom: 20px; }
   a.btn { display: inline-block; background: #d32f2f; color: white; text-decoration: none;
     padding: 12px 30px; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
@@ -52,7 +51,7 @@ PAGE_CALLING = """<!DOCTYPE html>
 </style></head><body>
 <div class="card">
   <h2>Chamada em andamento</h2>
-  <div class="name">{name}</div>
+  <h2>{name}</h2>
   <div class="phone">{phone}</div>
   <div class="status" id="timer">Timer: {timer}</div>
   <a class="btn" onclick="hangup()">Desligar</a>
