@@ -42,6 +42,7 @@ echo.
 
 REM 3. Build do executavel
 echo [3/6] Gerando CallAndroid.exe...
+taskkill /F /IM CallAndroid.exe >nul 2>&1
 if exist build rmdir /s /q build
 if exist dist rmdir /s /q dist
 python -m PyInstaller --onefile --windowed --name=CallAndroid --paths src --distpath=dist --workpath=build --specpath=build --clean src\main.py
