@@ -171,8 +171,7 @@ class CallHandler(BaseHTTPRequestHandler):
         params = {}
         for m in re.finditer(r"[&?](\w+)=(.+?)(?=[&?]|$)", raw):
             params[m.group(1).lower()] = m.group(2).strip()
-            raw = raw[:m.start()] + raw[m.end():]
-        raw = raw.strip().rstrip("/")
+        raw = re.sub(r"[&?]\w+=.+?(?=[&?]|$)", "", raw).strip().rstrip("/")
         phone = normalize_phone(raw)
         nome = params.get("nome", "")
         contato = params.get("contato", "")
