@@ -20,6 +20,7 @@ adb_path = ""
 in_call = False
 current_phone = ""
 current_name = ""
+current_contact = ""
 call_lock = threading.Lock()
 call_start_time = 0
 dial_done = False
@@ -44,6 +45,7 @@ PAGE_CALLING = """<!DOCTYPE html>
   .card { background: white; border-radius: 12px; padding: 40px; display: inline-block; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
   h2 { color: #333; margin-bottom: 5px; }
   .phone { font-size: 24px; font-weight: bold; color: #1a73e8; margin: 15px 0; }
+  .contact { color: #666; font-size: 14px; margin-bottom: 10px; }
   .status { color: #888; font-size: 14px; margin-bottom: 20px; }
   a.btn { display: inline-block; background: #d32f2f; color: white; text-decoration: none;
     padding: 12px 30px; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
@@ -52,6 +54,7 @@ PAGE_CALLING = """<!DOCTYPE html>
 <div class="card">
   <h2>Chamada em andamento</h2>
   <h2>{name}</h2>
+  {contact}
   <div class="phone">{phone}</div>
   <div class="status" id="timer">Timer: {timer}</div>
   <a class="btn" onclick="hangup()">Desligar</a>
@@ -121,10 +124,11 @@ class CallHandler(BaseHTTPRequestHandler):
                 if in_call:
                     elapsed = int(time.time() - call_start_time)
                     mins, secs = divmod(elapsed, 60)
-                    name_html = f'<div class="name">{current_name}</div>' if current_name else ""
+                    contact_html = f'<p class="contact">{current_contact}</p>' if current_contact else ""
                     self.send_html(
                         PAGE_CALLING
                         .replace("{name}", current_name)
+                        .replace("{contact}", contact_html)
                         .replace("{phone}", current_phone)
                         .replace("{timer}", f"{mins}:{secs:02d}")
                     )
@@ -164,31 +168,36 @@ class CallHandler(BaseHTTPRequestHandler):
                 return
 
         raw = urllib.parse.unquote(match.group(1)).strip()
-        nome_match = re.search(r"[&?]nome=(.+)$", raw, re.IGNORECASE)
-        if nome_match:
-            nome = nome_match.group(1).strip()
-            raw = raw[:nome_match.start()]
+        params = {}
+        for m in re.finditer(r"[&?](\w+)=(.+?)(?=[&?]|$)", raw):
+            params[m.group(1).lower()] = m.group(2).strip()
+            raw = raw[:m.start()] + raw[m.end():]
         raw = raw.strip().rstrip("/")
         phone = normalize_phone(raw)
+        nome = params.get("nome", "")
+        contato = params.get("contato", "")
 
         if not validate_phone(phone):
             self.send_html(PAGE_ERROR.replace("{error}", f"Telefone invalido: {phone}"), 400)
             return
 
-        logging.info("call requested: %s nome=%s", phone, nome)
+        logging.info("call requested: %s nome=%s contato=%s", phone, nome, contato)
 
         with call_lock:
             current_phone = phone
             current_name = nome
+            current_contact = contato
             in_call = True
             call_start_time = time.time()
             dial_done = False
 
         threading.Thread(target=_do_dial, args=(phone,), daemon=True).start()
 
+        contact_html = f'<p class="contact">{contato}</p>' if contato else ""
         self.send_html(
             PAGE_CALLING
             .replace("{name}", nome)
+            .replace("{contact}", contact_html)
             .replace("{phone}", phone)
             .replace("{timer}", "0:00")
         )
