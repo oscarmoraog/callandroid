@@ -19,6 +19,7 @@ logging.basicConfig(filename=log_path, level=logging.DEBUG, format="%(asctime)s 
 adb_path = ""
 in_call = False
 current_phone = ""
+current_name = ""
 call_lock = threading.Lock()
 call_start_time = 0
 dial_done = False
@@ -43,6 +44,7 @@ PAGE_CALLING = """<!DOCTYPE html>
   .card { background: white; border-radius: 12px; padding: 40px; display: inline-block; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
   h2 { color: #333; margin-bottom: 5px; }
   .phone { font-size: 24px; font-weight: bold; color: #1a73e8; margin: 15px 0; }
+  .name { font-size: 18px; color: #333; margin-bottom: 5px; }
   .status { color: #888; font-size: 14px; margin-bottom: 20px; }
   a.btn { display: inline-block; background: #d32f2f; color: white; text-decoration: none;
     padding: 12px 30px; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
@@ -50,6 +52,7 @@ PAGE_CALLING = """<!DOCTYPE html>
 </style></head><body>
 <div class="card">
   <h2>Chamada em andamento</h2>
+  <div class="name">{name}</div>
   <div class="phone">{phone}</div>
   <div class="status" id="timer">Timer: {timer}</div>
   <a class="btn" onclick="hangup()">Desligar</a>
@@ -112,14 +115,20 @@ class CallHandler(BaseHTTPRequestHandler):
         self.wfile.write(html.encode())
 
     def do_GET(self):
-        global in_call, call_start_time, current_phone
+        global in_call, call_start_time, current_phone, current_name
 
         if self.path == "/":
             with call_lock:
                 if in_call:
                     elapsed = int(time.time() - call_start_time)
                     mins, secs = divmod(elapsed, 60)
-                    self.send_html(PAGE_CALLING.replace("{phone}", current_phone).replace("{timer}", f"{mins}:{secs:02d}"))
+                    name_html = f'<div class="name">{current_name}</div>' if current_name else ""
+                    self.send_html(
+                        PAGE_CALLING
+                        .replace("{name}", current_name)
+                        .replace("{phone}", current_phone)
+                        .replace("{timer}", f"{mins}:{secs:02d}")
+                    )
                 else:
                     self.send_html(PAGE_IDLE)
             return
@@ -156,23 +165,34 @@ class CallHandler(BaseHTTPRequestHandler):
                 return
 
         raw = urllib.parse.unquote(match.group(1)).strip()
+        nome_match = re.search(r"[&?]nome=(.+)$", raw, re.IGNORECASE)
+        if nome_match:
+            nome = nome_match.group(1).strip()
+            raw = raw[:nome_match.start()]
+        raw = raw.strip().rstrip("/")
         phone = normalize_phone(raw)
 
         if not validate_phone(phone):
             self.send_html(PAGE_ERROR.replace("{error}", f"Telefone invalido: {phone}"), 400)
             return
 
-        logging.info("call requested: %s", phone)
+        logging.info("call requested: %s nome=%s", phone, nome)
 
         with call_lock:
             current_phone = phone
+            current_name = nome
             in_call = True
             call_start_time = time.time()
             dial_done = False
 
         threading.Thread(target=_do_dial, args=(phone,), daemon=True).start()
 
-        self.send_html(PAGE_CALLING.replace("{phone}", phone).replace("{timer}", "0:00"))
+        self.send_html(
+            PAGE_CALLING
+            .replace("{name}", nome)
+            .replace("{phone}", phone)
+            .replace("{timer}", "0:00")
+        )
 
 
 def _do_dial(phone):
