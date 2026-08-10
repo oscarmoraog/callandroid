@@ -1,10 +1,12 @@
 import os
 import re
 import time
+import json
 import logging
 import threading
 import urllib.parse
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from socketserver import ThreadingMixIn
 
 from adb import find_adb, get_available_device, dial, hangup, is_call_active
 from phone import normalize_phone, validate_phone
@@ -25,6 +27,28 @@ call_lock = threading.Lock()
 call_start_time = 0
 dial_done = False
 call_error = ""
+call_ended = False
+
+event_listeners = []
+event_lock = threading.Lock()
+
+
+def notify_clients(status):
+    with event_lock:
+        dead = []
+        for w in event_listeners:
+            try:
+                w.write(f"data: {status}\n\n".encode())
+                w.flush()
+            except Exception:
+                dead.append(w)
+        for w in dead:
+            event_listeners.remove(w)
+
+
+class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+    daemon_threads = True
+
 
 PAGE_IDLE = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>CallAndroid</title>
@@ -72,21 +96,16 @@ setInterval(updateTimer, 1000);
 function hangup() {{
   fetch('/hangup').then(function() {{ document.location.href = '/ended'; }});
 }}
-function checkStatus() {{
-  fetch('/status').then(function(r) {{ return r.text(); }}).then(function(s) {{
-    if (s === 'idle') document.location.href = '/ended';
-    else if (s.startsWith('error:')) {{
-      document.querySelector('.card').innerHTML =
-        '<h2 style="color:#d32f2f">Erro</h2>' +
-        '<p>' + s.substring(6) + '</p>';
-    }}
-  }});
-}}
-setInterval(checkStatus, 2000);
-document.addEventListener('visibilitychange', function() {{
-  if (!document.hidden) checkStatus();
-}});
-window.addEventListener('focus', checkStatus);
+var evtSource = new EventSource('/events');
+evtSource.onmessage = function(e) {{
+  if (e.data === 'idle' || e.data === 'ended') {{
+    document.location.href = '/ended';
+  }} else if (e.data.startsWith('error:')) {{
+    document.querySelector('.card').innerHTML =
+      '<h2 style="color:#d32f2f">Erro</h2>' +
+      '<p>' + e.data.substring(6) + '</p>';
+  }}
+}};
 </script>
 </body></html>"""
 
@@ -155,11 +174,32 @@ class CallHandler(BaseHTTPRequestHandler):
             with call_lock:
                 in_call = False
                 dial_done = False
+            notify_clients("ended")
             self.send_html(PAGE_ENDED)
             return
 
         if self.path == "/ended":
             self.send_html(PAGE_ENDED)
+            return
+
+        if self.path == "/events":
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Connection", "keep-alive")
+            self.send_header("X-Accel-Buffering", "no")
+            self.end_headers()
+            self.wfile.write(b": connected\n\n")
+            self.wfile.flush()
+            with event_lock:
+                event_listeners.append(self.wfile)
+            try:
+                while True:
+                    time.sleep(30)
+                    self.wfile.write(b": ping\n\n")
+                    self.wfile.flush()
+            except Exception:
+                pass
             return
 
         if self.path == "/status":
@@ -170,7 +210,6 @@ class CallHandler(BaseHTTPRequestHandler):
                     status = f"error:{call_error}"
                 else:
                     status = "idle"
-            logging.debug("status check: %s (in_call=%s)", status, in_call)
             self.send_response(200)
             self.send_header("Content-Type", "text/plain")
             self.end_headers()
@@ -234,6 +273,7 @@ def _do_dial(phone):
             with call_lock:
                 call_error = "Falha ao discar. Verifique o Android."
                 in_call = False
+            notify_clients("error:Falha ao discar. Verifique o Android.")
         else:
             time.sleep(5)
             with call_lock:
@@ -243,6 +283,7 @@ def _do_dial(phone):
         with call_lock:
             call_error = str(e)
             in_call = False
+        notify_clients(f"error:{e}")
 
 
 def monitor_call():
@@ -256,6 +297,7 @@ def monitor_call():
                         logging.info("call ended from phone")
                         in_call = False
                         dial_done = False
+                        notify_clients("idle")
                 except Exception:
                     pass
 
@@ -278,7 +320,7 @@ def main():
     monitor_thread = threading.Thread(target=monitor_call, daemon=True)
     monitor_thread.start()
 
-    server = HTTPServer(("127.0.0.1", PORT), CallHandler)
+    server = ThreadedHTTPServer(("127.0.0.1", PORT), CallHandler)
     logging.info("server started on port %d", PORT)
     print(f"{APP_NAME} rodando em http://localhost:{PORT}")
     server.serve_forever()
