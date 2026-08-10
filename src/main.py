@@ -70,17 +70,15 @@ function updateTimer() {{
 }}
 setInterval(updateTimer, 1000);
 function hangup() {{
-  fetch('/hangup').then(function() {{ window.close(); }});
+  fetch('/hangup').then(function() {{ document.location.href = '/ended'; }});
 }}
 function checkStatus() {{
   fetch('/status').then(function(r) {{ return r.text(); }}).then(function(s) {{
-    if (s === 'idle') window.close();
+    if (s === 'idle') document.location.href = '/ended';
     else if (s.startsWith('error:')) {{
       document.querySelector('.card').innerHTML =
         '<h2 style="color:#d32f2f">Erro</h2>' +
-        '<p>' + s.substring(6) + '</p>' +
-        '<p style="color:#888;font-size:12px">Esta janela fechara automaticamente.</p>';
-      setTimeout(function() {{ window.close(); }}, 3000);
+        '<p>' + s.substring(6) + '</p>';
     }}
   }});
 }}
@@ -153,6 +151,10 @@ class CallHandler(BaseHTTPRequestHandler):
             with call_lock:
                 in_call = False
                 dial_done = False
+            self.send_html(PAGE_ENDED)
+            return
+
+        if self.path == "/ended":
             self.send_html(PAGE_ENDED)
             return
 
