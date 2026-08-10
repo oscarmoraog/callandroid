@@ -24,6 +24,7 @@ current_contact = ""
 call_lock = threading.Lock()
 call_start_time = 0
 dial_done = False
+call_error = ""
 
 PAGE_IDLE = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>CallAndroid</title>
@@ -74,6 +75,13 @@ function hangup() {{
 function checkStatus() {{
   fetch('/status').then(function(r) {{ return r.text(); }}).then(function(s) {{
     if (s === 'idle') window.close();
+    else if (s.startsWith('error:')) {{
+      document.querySelector('.card').innerHTML =
+        '<h2 style="color:#d32f2f">Erro</h2>' +
+        '<p>' + s.substring(6) + '</p>' +
+        '<p style="color:#888;font-size:12px">Esta janela fechara automaticamente.</p>';
+      setTimeout(function() {{ window.close(); }}, 3000);
+    }}
   }});
 }}
 setInterval(checkStatus, 1000);
@@ -150,7 +158,12 @@ class CallHandler(BaseHTTPRequestHandler):
 
         if self.path == "/status":
             with call_lock:
-                status = "calling" if in_call else "idle"
+                if in_call:
+                    status = "calling"
+                elif call_error:
+                    status = f"error:{call_error}"
+                else:
+                    status = "idle"
             self.send_response(200)
             self.send_header("Content-Type", "text/plain")
             self.end_headers()
@@ -189,6 +202,7 @@ class CallHandler(BaseHTTPRequestHandler):
             in_call = True
             call_start_time = time.time()
             dial_done = False
+            call_error = ""
 
         threading.Thread(target=_do_dial, args=(phone,), daemon=True).start()
 
@@ -203,13 +217,15 @@ class CallHandler(BaseHTTPRequestHandler):
 
 
 def _do_dial(phone):
-    global in_call, dial_done
+    global in_call, dial_done, call_error
     dial_done = False
+    call_error = ""
     try:
         result = dial(adb_path, phone)
         if result.returncode != 0:
             logging.error("dial failed: %s", result.stderr)
             with call_lock:
+                call_error = "Falha ao discar. Verifique o Android."
                 in_call = False
         else:
             time.sleep(5)
@@ -218,6 +234,7 @@ def _do_dial(phone):
     except Exception as e:
         logging.error("dial error: %s", e)
         with call_lock:
+            call_error = str(e)
             in_call = False
 
 
