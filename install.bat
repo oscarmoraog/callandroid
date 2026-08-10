@@ -71,6 +71,7 @@ echo Set oWsh = CreateObject("WScript.Shell") > "%TEMP%\create_shortcut.vbs"
 echo Set oLink = oWsh.CreateShortcut("%SHORTCUT%") >> "%TEMP%\create_shortcut.vbs"
 echo oLink.TargetPath = "%EXE_PATH%" >> "%TEMP%\create_shortcut.vbs"
 echo oLink.WorkingDirectory = "%~dp0dist" >> "%TEMP%\create_shortcut.vbs"
+echo oLink.WindowStyle = 7 >> "%TEMP%\create_shortcut.vbs"
 echo oLink.Description = "CallAndroid Server" >> "%TEMP%\create_shortcut.vbs"
 echo oLink.Save >> "%TEMP%\create_shortcut.vbs"
 cscript //nologo "%TEMP%\create_shortcut.vbs"
@@ -78,10 +79,13 @@ del "%TEMP%\create_shortcut.vbs"
 echo OK
 echo.
 
-REM 6. Inicia o servidor agora
+REM 6. Inicia o servidor agora (100% invisivel via VBS)
 echo [6/6] Iniciando CallAndroid...
 if exist "%EXE_PATH%" (
-    start /min "" "%EXE_PATH%"
+    echo Set oWsh = CreateObject("WScript.Shell") > "%TEMP%\start_callandroid.vbs"
+    echo oWsh.Run """%EXE_PATH%""", 0, False >> "%TEMP%\start_callandroid.vbs"
+    cscript //nologo "%TEMP%\start_callandroid.vbs"
+    del "%TEMP%\start_callandroid.vbs"
     echo OK
 ) else (
     echo ERRO: dist\CallAndroid.exe nao encontrado.
