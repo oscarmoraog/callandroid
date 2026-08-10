@@ -2,7 +2,7 @@ import sys
 import os
 
 def write_vbs(target_path, exe_path):
-    vbs = f'Set oWsh = CreateObject("WScript.Shell")\noWsh.Run ""{exe_path}"", 0, False\n'
+    vbs = f'Set oWsh = CreateObject("WScript.Shell")\noWsh.Run "{exe_path}", 0, False\n'
     with open(target_path, "w") as f:
         f.write(vbs)
 
