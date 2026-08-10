@@ -1,10 +1,17 @@
 # CallAndroid
 
-Ponte simples entre links no Notion e o discador do Android via ADB.
+Ponte entre links no Notion e o discador do Android via ADB.
 
 ```
-Notion → callandroid:// → CallAndroid.exe → ADB → Android abre discador
+Notion link → localhost:39527 → ADB → Android liga
 ```
+
+## Como funciona
+
+1. Clique num link no Notion
+2. Abre uma aba no browser com o status da chamada
+3. O Android disca automaticamente via ADB
+4. Quando desligar no phone, a aba atualiza em tempo real (SSE)
 
 ## Requisitos
 
@@ -17,38 +24,56 @@ Notion → callandroid:// → CallAndroid.exe → ADB → Android abre discador
 1. Baixe [Android SDK Platform Tools](https://developer.android.com/studio/releases/platform-tools)
 2. Extraia para `C:\platform-tools`
 3. Adicione `C:\platform-tools` ao PATH do Windows
-4. Teste: abra o CMD e execute `adb devices`
+4. Teste: `adb devices`
 
 ## Configurar o Android
 
-1. Abra **Configurações** → **Sobre o telefone**
-2. Toque 7 vezes em **Número da versão** (ativa Modo Desenvolvedor)
-3. Volte e abra **Opções do desenvolvedor**
-4. Ative **Depuração USB**
-5. Conecte o Android via cabo USB
-6. Aceite a mensagem **"Permitir depuração USB?"** no celular
-7. Teste: `adb devices` deve mostrar `XXXXXXXX    device`
+1. **Configurações** → **Sobre o telefone** → toque 7x em **Número da versão**
+2. Abra **Opções do desenvolvedor** → ative **Depuração USB**
+3. Conecte via USB e aceite **"Permitir depuração USB?"**
+4. Teste: `adb devices` deve mostrar `XXXXXXXX    device`
 
-## Instalar CallAndroid
+## Instalar
 
-1. Clique com o botão direito em `install.bat`
+1. Clique com botão direito em `install.bat`
 2. Selecione **"Executar como administrador"**
-3. Pronto! O executável é gerado e o protocolo `callandroid://` é registrado automaticamente
+3. Pronto! O executável é gerado e o servidor inicia automaticamente
 
-## Como usar no Notion
+O `install.bat`:
+- Verifica Python e PyInstaller
+- Gera `dist\CallAndroid.exe`
+- Registra auto-start no Windows (via VBS)
+- Cria atalho no Desktop
 
-1. Crie um campo **Telefone** com o número no formato `+5511999999999`
-2. Crie um link com URL: `callandroid://5511999999999`
-3. Clique no link → o Android abre o discador com o número
+## Usar no Notion
+
+URL do link:
+
+```
+http://localhost:39527/call/5511999999999?nome=Lumikit&contato=teste
+```
+
+Parâmetros:
+- **Telefone** (obrigatório): número com código do país
+- **nome** (opcional): exibe o nome do cliente na página
+- **contato** (opcional): exibe informações adicionais de contato
 
 ### Exemplo na tabela do Notion
 
-| Nome   | Telefone           | Ligar      |
-| ------ | ------------------ | ---------- |
-| João   | +55 11 99999-9999  | 📞 Ligar  |
-| Maria  | +55 11 98888-8888  | 📞 Ligar  |
+| Nome   | Telefone          | Link de ligação |
+| ------ | ----------------- | --------------- |
+| Lumikit | +55 11 94832-3837 | [Ligar](http://localhost:39527/call/5511948323837?nome=Lumikit) |
 
-O link de "📞 Ligar" deve apontar para `callandroid://5511999999999`.
+## Endpoints
+
+| Rota | Método | Descrição |
+| ---- | ------ | --------- |
+| `/` | GET | Página principal (idle ou chamada em andamento) |
+| `/call/<telefone>` | GET | Inicia a ligação |
+| `/hangup` | GET | Desliga a chamada |
+| `/ended` | GET | Página "Chamada encerrada" |
+| `/status` | GET | Status atual: `calling`, `idle` ou `error:<msg>` |
+| `/events` | GET | SSE em tempo real (push de status) |
 
 ## Testar
 
@@ -68,5 +93,5 @@ Conecte o Android via USB com depuração USB ativada.
 ### "O Android ainda não autorizou este computador"
 Verifique a tela do celular e aceite a autorização.
 
-### "O dispositivo Android está offline"
-Reconecte o cabo USB e tente novamente.
+### Ligação não aparece no phone
+Verifique se o ADB está funcionando: `adb devices` deve mostrar `device`.

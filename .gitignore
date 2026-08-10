@@ -6,3 +6,4 @@ dist/
 *.spec
 *.ico
 *.log
+.pytest_cache/
