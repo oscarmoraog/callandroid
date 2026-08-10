@@ -50,7 +50,7 @@ O `install.bat`:
 URL do link:
 
 ```
-http://localhost:39527/call/5511999999999?nome=Lumikit&contato=teste
+http://localhost:39527/call/5511999999999?nome=Lumikit&contato=(11)999999999
 ```
 
 Parâmetros:
@@ -62,7 +62,7 @@ Parâmetros:
 
 | Nome   | Telefone          | Link de ligação |
 | ------ | ----------------- | --------------- |
-| Lumikit | +55 11 94832-3837 | [Ligar](http://localhost:39527/call/5511948323837?nome=Lumikit) |
+| Lumikit | +55 11 94832-3837 | [Ligar](http://localhost:39527/call/5511948323837?nome=Lumikit&contato=(11)999999999) |
 
 ## Endpoints
 
