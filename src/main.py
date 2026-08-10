@@ -82,7 +82,11 @@ function checkStatus() {{
     }}
   }});
 }}
-setInterval(checkStatus, 1000);
+setInterval(checkStatus, 2000);
+document.addEventListener('visibilitychange', function() {{
+  if (!document.hidden) checkStatus();
+}});
+window.addEventListener('focus', checkStatus);
 </script>
 </body></html>"""
 
@@ -166,6 +170,7 @@ class CallHandler(BaseHTTPRequestHandler):
                     status = f"error:{call_error}"
                 else:
                     status = "idle"
+            logging.debug("status check: %s (in_call=%s)", status, in_call)
             self.send_response(200)
             self.send_header("Content-Type", "text/plain")
             self.end_headers()
